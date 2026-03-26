@@ -2,14 +2,14 @@
 
 **Project:** FreeSWITCH ASR/TTS Modules
 **Phase:** Phase 1 - ASR Core Module
-**Status:** Ready
+**Status:** Planned
 
 ## Current Phase
 
 **Phase:** 1
 **Name:** ASR Core Module
-**Status:** Context Gathered
-**Progress:** 10%
+**Status:** Planned
+**Progress:** 15%
 
 ### Phase Goal
 Users can perform streaming speech recognition with Aliyun Cloud ASR, integrating with Java business system via ESL
@@ -24,11 +24,16 @@ Users can perform streaming speech recognition with Aliyun Cloud ASR, integratin
 ### Context File
 `.planning/phases/01-asr-core-module/01-CONTEXT.md`
 
+### Plans
+- [ ] 01-01-PLAN.md — Module skeleton with lifecycle and configuration
+- [ ] 01-02-PLAN.md — Audio pipeline: media bug, ring buffer, resampling
+- [ ] 01-03-PLAN.md — ASR core: WebSocket client, VAD, ESL events, worker pool
+
 ## Phase History
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| 1. ASR Core Module | Context Gathered | — |
+| 1. ASR Core Module | Planned | — |
 | 2. TTS Module | Not Started | — |
 | 3. Barge-In | Not Started | — |
 
@@ -68,7 +73,8 @@ See: .planning/PROJECT.md
 - (See `.planning/phases/01-asr-core-module/01-CONTEXT.md` for full list)
 
 ### Todos
-- [ ] Run `/gsd-plan-phase 1` to create detailed implementation plan
+- [x] Run `/gsd-plan-phase 1` to create detailed implementation plan
+- [ ] Run `/gsd-execute-phase 1` to implement Phase 1
 
 ### Blockers
 - (None yet - will be tracked as they arise)
@@ -76,10 +82,10 @@ See: .planning/PROJECT.md
 ## Session Continuity
 
 *State initialized: 2026-03-26*
-*Last updated: 2026-03-26 - Phase 1 context gathered*
+*Last updated: 2026-03-26 - Phase 1 planned (3 plans in 3 waves)*
 
 **Quick Start:**
 ```
-/gsd-plan-phase 1    # Plan first phase (next step)
-/gsd-status          # Check current status
+/gsd-execute-phase 1  # Execute Phase 1 plans (next step)
+/gsd-status           # Check current status
 ```
