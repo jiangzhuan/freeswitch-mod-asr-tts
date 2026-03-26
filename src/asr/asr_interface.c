@@ -52,6 +52,11 @@ switch_status_t asr_open(switch_asr_handle_t *ah, const char *codec, int rate, c
     
     handle->provider = &aliyun_provider;
     
+    handle->provider_ctx = handle->provider->create(NULL, NULL, NULL);
+    if (handle->provider_ctx) {
+        handle->provider->set_callbacks(handle->provider_ctx, handle, on_asr_result, on_asr_error);
+    }
+    
     handle->vad = vad_create(-40);
     if (!handle->vad) {
         switch_core_destroy_memory_pool(&pool);
