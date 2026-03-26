@@ -8,8 +8,8 @@
 
 **Phase:** 1
 **Name:** ASR Core Module
-**Status:** Not Started
-**Progress:** 0%
+**Status:** Context Gathered
+**Progress:** 10%
 
 ### Phase Goal
 Users can perform streaming speech recognition with Aliyun Cloud ASR, integrating with Java business system via ESL
@@ -21,11 +21,14 @@ Users can perform streaming speech recognition with Aliyun Cloud ASR, integratin
 4. [ ] System correctly handles standard telephony audio (8kHz G.711)
 5. [ ] Administrator can configure module via XML and load/unload via CLI
 
+### Context File
+`.planning/phases/01-asr-core-module/01-CONTEXT.md`
+
 ## Phase History
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| 1. ASR Core Module | Not Started | — |
+| 1. ASR Core Module | Context Gathered | — |
 | 2. TTS Module | Not Started | — |
 | 3. Barge-In | Not Started | — |
 
@@ -57,7 +60,12 @@ See: .planning/PROJECT.md
 ## Accumulated Context
 
 ### Decisions
-- (None yet - will accumulate during development)
+- D-01: 使用 Media Bug 机制捕获音频（非阻塞）
+- D-02: 使用 Ring Buffer + Worker 线程池处理 ASR
+- D-03: WebSocket 状态机 + 指数退避重连
+- D-04: Phase 1 使用能量检测 VAD
+- D-05: ESL 事件使用 CUSTOM 类型，子类 "asr"
+- (See `.planning/phases/01-asr-core-module/01-CONTEXT.md` for full list)
 
 ### Todos
 - [ ] Run `/gsd-plan-phase 1` to create detailed implementation plan
@@ -68,9 +76,10 @@ See: .planning/PROJECT.md
 ## Session Continuity
 
 *State initialized: 2026-03-26*
+*Last updated: 2026-03-26 - Phase 1 context gathered*
 
 **Quick Start:**
 ```
-/gsd-plan-phase 1    # Plan first phase
+/gsd-plan-phase 1    # Plan first phase (next step)
 /gsd-status          # Check current status
 ```
