@@ -11,6 +11,19 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_asr_tts_load);
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_asr_tts_shutdown);
 SWITCH_MODULE_DEFINITION(mod_asr_tts, mod_asr_tts_load, NULL, mod_asr_tts_shutdown);
 
+static void audio_processor_callback(void *ctx, int16_t *audio, size_t samples) {
+    asr_handle_t *handle = (asr_handle_t *)ctx;
+    switch_asr_handle_t ah;
+    switch_asr_flag_t flags = 0;
+    
+    if (!handle || !handle->running) {
+        return;
+    }
+    
+    ah.private_info = handle;
+    asr_feed(&ah, audio, samples * sizeof(int16_t), &flags);
+}
+
 static switch_status_t asr_status_api(const char *cmd, switch_core_session_t *session, switch_stream_handle_t *stream) {
     stream->write_function(stream, "+OK ASR module loaded (version %s)\n", MOD_ASR_TTS_VERSION);
     stream->write_function(stream, "Config: appkey=%s, sample_rate=%d, thread_pool_size=%d\n", 
@@ -43,7 +56,7 @@ static void start_asr_app(switch_core_session_t *session, const char *data) {
     
     handle = (asr_handle_t *)ah->private_info;
     if (handle) {
-        if (media_bug_attach(&handle->session_ctx, session) != SWITCH_STATUS_SUCCESS) {
+        if (media_bug_attach(&handle->session_ctx, session, audio_processor_callback, handle) != SWITCH_STATUS_SUCCESS) {
             switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, 
                 "Failed to attach media bug\n");
         }

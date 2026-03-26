@@ -1,4 +1,24 @@
 #include "media_bug.h"
+#include "worker.h"
+
+static void* buffer_consumer_thread(void *data) {
+    asr_session_ctx_t *ctx = (asr_session_ctx_t *)data;
+    int16_t audio_buf[1600];
+    size_t audio_len;
+    
+    while (ctx->running && ctx->active) {
+        audio_len = sizeof(audio_buf);
+        if (buffer_read(ctx->buffer, audio_buf, &audio_len) == SWITCH_STATUS_SUCCESS && audio_len > 0) {
+            if (ctx->audio_processor) {
+                ctx->audio_processor(ctx->processor_ctx, audio_buf, audio_len / sizeof(int16_t));
+            }
+        } else {
+            switch_yield(10000);
+        }
+    }
+    
+    return NULL;
+}
 
 static switch_bool_t asr_media_bug_callback(switch_media_bug_t *bug, void *user_data, switch_abc_type_t type) {
     asr_session_ctx_t *ctx = (asr_session_ctx_t *)user_data;
@@ -6,7 +26,18 @@ static switch_bool_t asr_media_bug_callback(switch_media_bug_t *bug, void *user_
     switch (type) {
         case SWITCH_ABC_TYPE_INIT:
             ctx->active = SWITCH_TRUE;
+            ctx->running = SWITCH_TRUE;
             ctx->frame_count = 0;
+            
+            if (ctx->buffer) {
+                switch_threadattr_t *thd_attr = NULL;
+                switch_memory_pool_t *pool = switch_core_session_get_pool(ctx->session);
+                if (pool && switch_threadattr_create(&thd_attr, pool) == SWITCH_STATUS_SUCCESS) {
+                    switch_threadattr_detach_set(thd_attr, 1);
+                    switch_thread_create(&ctx->consumer_thread, thd_attr, buffer_consumer_thread, ctx, pool);
+                }
+            }
+            
             switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(ctx->session), SWITCH_LOG_INFO, 
                 "ASR media bug initialized\n");
             break;
@@ -30,7 +61,13 @@ static switch_bool_t asr_media_bug_callback(switch_media_bug_t *bug, void *user_
             break;
             
         case SWITCH_ABC_TYPE_CLOSE:
+            ctx->running = SWITCH_FALSE;
             ctx->active = SWITCH_FALSE;
+            
+            if (ctx->consumer_thread) {
+                switch_thread_join(&ctx->consumer_thread);
+            }
+            
             switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(ctx->session), SWITCH_LOG_INFO, 
                 "ASR media bug closed, frames processed: %u, buffer available: %zu\n", 
                 ctx->frame_count, buffer_available(ctx->buffer));
@@ -43,7 +80,8 @@ static switch_bool_t asr_media_bug_callback(switch_media_bug_t *bug, void *user_
     return SWITCH_TRUE;
 }
 
-switch_status_t media_bug_attach(asr_session_ctx_t **ctx, switch_core_session_t *session) {
+switch_status_t media_bug_attach(asr_session_ctx_t **ctx, switch_core_session_t *session,
+                                  audio_processor_fn processor, void *processor_ctx) {
     switch_memory_pool_t *pool = NULL;
     asr_session_ctx_t *new_ctx = NULL;
     switch_status_t status;
@@ -68,7 +106,11 @@ switch_status_t media_bug_attach(asr_session_ctx_t **ctx, switch_core_session_t 
     new_ctx->pool = pool;
     new_ctx->session = session;
     new_ctx->active = SWITCH_FALSE;
+    new_ctx->running = SWITCH_FALSE;
     new_ctx->frame_count = 0;
+    new_ctx->consumer_thread = NULL;
+    new_ctx->audio_processor = processor;
+    new_ctx->processor_ctx = processor_ctx;
     
     new_ctx->buffer = buffer_create(pool, 320000);
     if (!new_ctx->buffer) {
@@ -115,9 +157,15 @@ void media_bug_detach(asr_session_ctx_t **ctx) {
     
     asr_session_ctx_t *c = *ctx;
     
+    c->running = SWITCH_FALSE;
+    
     if (c->bug) {
         switch_core_media_bug_remove(c->session, &c->bug);
         c->bug = NULL;
+    }
+    
+    if (c->consumer_thread) {
+        switch_thread_join(&c->consumer_thread);
     }
     
     buffer_destroy(&c->buffer);
