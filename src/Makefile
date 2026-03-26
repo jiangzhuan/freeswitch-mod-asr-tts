@@ -3,7 +3,7 @@ CFLAGS=-fPIC -Wall -I/usr/local/freeswitch/include/freeswitch
 LDFLAGS=-shared -lfreeswitch
 
 TARGET=mod_asr_tts.so
-SRCS=mod_asr_tts.c core/config.c
+SRCS=mod_asr_tts.c core/config.c core/buffer.c core/resample.c core/media_bug.c
 OBJS=$(SRCS:.c=.o)
 
 all: $(TARGET)
