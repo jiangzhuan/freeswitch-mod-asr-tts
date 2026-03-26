@@ -1,36 +1,41 @@
 {
   "version": "1.0",
-  "timestamp": "2026-03-26T14:47:59.931Z",
+  "timestamp": "2026-03-26T16:31:10.052Z",
   "phase": "01",
   "phase_name": "asr-core-module",
   "phase_dir": ".planning/phases/01-asr-core-module",
   "plan": "01.3",
-  "task": 1,
-  "total_tasks": 3,
+  "task": 6,
+  "total_tasks": 6,
   "status": "paused",
   "completed_tasks": [
     {"id": 1, "name": "WebSocket Client Implementation", "status": "done", "commit": "225215c"},
     {"id": 2, "name": "Wire ASR Interface to Real Implementation", "status": "done", "commit": "9c85b82"},
-    {"id": 3, "name": "Worker Pool Integration + Docker Build Environment", "status": "done", "commit": "f5bcb38"}
+    {"id": 3, "name": "Worker Pool Integration + Docker Build Environment", "status": "done", "commit": "f5bcb38"},
+    {"id": 4, "name": "Docker Build Test", "status": "done", "commit": "fcc8de6"},
+    {"id": 5, "name": "Compilation Fix", "status": "done", "commit": "fcc8de6"},
+    {"id": 6, "name": "Phase Verification", "status": "in_progress", "progress": "Module compiles, pushed to GitHub, but not tested in FreeSWITCH"}
   ],
   "remaining_tasks": [
-    {"id": 4, "name": "Docker Build Test", "status": "not_started"},
-    {"id": 5, "name": "FreeSWITCH Integration Test", "status": "not_started"},
-    {"id": 6, "name": "Phase Verification", "status": "in_progress"}
+    {"id": 7, "name": "FreeSWITCH Integration Test", "status": "not_started"},
+    {"id": 8, "name": "WebSocket implementation (requires curl 7.86+)", "status": "blocked"}
   ],
   "blockers": [
-    {"description": "No FreeSWITCH headers on Windows", "type": "technical", "workaround": "Use Docker build environment"}
+    {"description": "curl 7.68.0 in FunASR image doesn't support WebSocket (need 7.86+)", "type": "technical", "workaround": "Stub implementation created; real WebSocket needs curl upgrade or alternative library"},
+    {"description": "No FreeSWITCH environment for integration testing", "type": "environmental", "workaround": "Need Debian 12 with FreeSWITCH installed"}
   ],
   "human_actions_pending": [
-    {"action": "Run Docker build test", "context": "Need to verify module compiles in Debian 12 container", "blocking": false},
-    {"action": "Test in FreeSWITCH", "context": "Load module and make test call with ASR", "blocking": false}
+    {"action": "Test module in FreeSWITCH", "context": "Load mod_asr_tts.so and make test call with ASR", "blocking": false},
+    {"action": "Upgrade curl or use alternative WebSocket library", "context": "For real Aliyun ASR WebSocket support", "blocking": true}
   ],
   "decisions": [
-    {"decision": "Use libcurl for WebSocket", "rationale": "FreeSWITCH already depends on libcurl, avoids additional dependency", "phase": "01"},
-    {"decision": "Buffer consumer thread pattern", "rationale": "Non-blocking audio capture with async processing", "phase": "01"},
-    {"decision": "Docker build environment", "rationale": "Cross-platform development on Windows, target Debian 12", "phase": "01"}
+    {"decision": "Use FunASR Docker image as build base", "rationale": "Already has required dependencies, available in Chinese registry", "phase": "01"},
+    {"decision": "Create stub aliyun_asr implementation", "rationale": "curl 7.68.0 lacks WebSocket support; stub allows compilation and basic testing", "phase": "01"},
+    {"decision": "Use Chinese Ubuntu mirrors in Dockerfile", "rationale": "Faster package downloads from mirrors.aliyun.com", "phase": "01"},
+    {"decision": "Fix switch_thread_join signature", "rationale": "FreeSWITCH API requires (status_t*, thread_t*) parameters", "phase": "01"},
+    {"decision": "Use switch_audio_resampler_t instead of switch_resampler_t", "rationale": "Correct type name in FreeSWITCH 1.10.12", "phase": "01"}
   ],
   "uncommitted_files": [],
-  "next_action": "Run Docker build test: cd docker && bash build.sh",
-  "context_notes": "Phase 1 core implementation complete. All gap closure plans executed. WebSocket client, ASR interface, and audio pipeline wired. Need to verify compilation and integration testing."
+  "next_action": "Test module loading in FreeSWITCH: load mod_asr_tts.so via fs_cli",
+  "context_notes": "Phase 1 core implementation complete. Module compiles successfully (52KB). All compilation errors fixed. GitHub repo created and code pushed. Main remaining work: 1) Test in actual FreeSWITCH environment, 2) Implement real WebSocket with curl 7.86+ or alternative. The stub implementation allows the module to load but won't actually connect to Aliyun ASR."
 }
