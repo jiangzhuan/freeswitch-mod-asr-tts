@@ -165,6 +165,15 @@ switch_status_t aliyun_asr_connect(aliyun_asr_provider_t *provider) {
     provider->running = SWITCH_TRUE;
     provider->last_heartbeat = time(NULL);
     
+    switch_threadattr_t *thd_attr;
+    switch_memory_pool_t *pool;
+    if (switch_core_new_memory_pool(&pool) == SWITCH_STATUS_SUCCESS) {
+        switch_threadattr_create(&thd_attr, pool);
+        switch_threadattr_detach_set(thd_attr, 1);
+        switch_thread_create(&provider->recv_thread, thd_attr, recv_thread_func, provider, pool);
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "WebSocket receive thread started\n");
+    }
+    
     curl_slist_free_all(headers);
     
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Aliyun ASR connected via WebSocket\n");

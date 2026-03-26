@@ -1,6 +1,7 @@
 #include "mod_asr_tts.h"
 #include "core/config.h"
 #include "core/worker.h"
+#include "core/media_bug.h"
 #include "asr/asr_interface.h"
 
 static mod_asr_tts_config_t g_config;
@@ -20,6 +21,7 @@ static switch_status_t asr_status_api(const char *cmd, switch_core_session_t *se
 static void start_asr_app(switch_core_session_t *session, const char *data) {
     switch_channel_t *channel = switch_core_session_get_channel(session);
     switch_asr_handle_t *ah = NULL;
+    asr_handle_t *handle = NULL;
     switch_asr_flag_t flags = 0;
     const char *uuid = switch_channel_get_uuid(channel);
     
@@ -37,6 +39,18 @@ static void start_asr_app(switch_core_session_t *session, const char *data) {
         switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, 
             "Failed to open ASR handle\n");
         return;
+    }
+    
+    handle = (asr_handle_t *)ah->private_info;
+    if (handle) {
+        if (media_bug_attach(&handle->session_ctx, session) != SWITCH_STATUS_SUCCESS) {
+            switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, 
+                "Failed to attach media bug\n");
+        }
+        
+        if (handle->provider && handle->provider_ctx) {
+            handle->provider->connect(handle->provider_ctx);
+        }
     }
     
     switch_channel_set_variable(channel, "asr_handle", (const char *)ah);
