@@ -45,6 +45,13 @@
 
 **Estimated Complexity:** HIGH
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Module skeleton with lifecycle and configuration
+- [ ] 01-02-PLAN.md — Audio pipeline: media bug, ring buffer, resampling
+- [ ] 01-03-PLAN.md — ASR core: WebSocket client, VAD, ESL events, worker pool
+
 ---
 
 ### Phase 2: TTS Module
@@ -107,7 +114,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. ASR Core Module | 0/0 | Not started | - |
+| 1. ASR Core Module | 0/3 | Planned | - |
 | 2. TTS Module | 0/0 | Not started | - |
 | 3. Barge-In | 0/0 | Not started | - |
 
@@ -137,4 +144,5 @@ Future phases planned for v2 (not in current scope):
 ---
 
 *Roadmap created: 2026-03-26*
-*Ready for planning: `/gsd-plan-phase 1`*
+*Phase 1 planned: 2026-03-26*
+*Ready for execution: `/gsd-execute-phase 1`*
