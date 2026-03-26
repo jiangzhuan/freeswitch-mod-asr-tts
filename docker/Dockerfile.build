@@ -1,0 +1,28 @@
+FROM debian:12
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    gnupg2 \
+    curl \
+    libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add FreeSWITCH repository
+RUN wget -O - https://files.freeswitch.org/repo/deb/debian-release/freeswitch_archive_g0.pub | apt-key add - \
+    && echo "deb http://files.freeswitch.org/repo/deb/debian-release/ bookworm main" > /etc/apt/sources.list.d/freeswitch.list \
+    && apt-get update
+
+# Install FreeSWITCH development headers
+RUN apt-get install -y \
+    freeswitch-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symbolic links for includes
+RUN ln -sf /usr/include/freeswitch /usr/local/freeswitch/include/freeswitch 2>/dev/null || true
+
+WORKDIR /build
+
+VOLUME ["/build/src", "/build/output"]
+
+CMD ["make", "-C", "src"]

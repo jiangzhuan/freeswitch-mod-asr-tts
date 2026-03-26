@@ -1,0 +1,28 @@
+FROM debian:12
+
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg2 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add FreeSWITCH repository
+RUN wget -O - https://files.freeswitch.org/repo/deb/debian-release/freeswitch_archive_g0.pub | apt-key add - \
+    && echo "deb http://files.freeswitch.org/repo/deb/debian-release/ bookworm main" > /etc/apt/sources.list.d/freeswitch.list \
+    && apt-get update
+
+# Install FreeSWITCH
+RUN apt-get install -y \
+    freeswitch-meta-vanilla \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create config directory
+RUN mkdir -p /etc/freeswitch/autoload_configs
+
+WORKDIR /data
+
+VOLUME ["/data/mod", "/data/conf", "/data/test"]
+
+EXPOSE 5060/udp 5060/tcp 8021/tcp
+
+CMD ["freeswitch", "-nonat", "-nf"]
