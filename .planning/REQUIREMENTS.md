@@ -62,20 +62,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ASR-01 | Phase 1 | Pending |
-| ASR-02 | Phase 1 | Pending |
-| ASR-03 | Phase 1 | Pending |
-| ASR-04 | Phase 1 | Pending |
-| ASR-05 | Phase 1 | Pending |
-| ASR-06 | Phase 1 | Pending |
-| TTS-01 | Phase 2 | Pending |
-| TTS-02 | Phase 2 | Pending |
-| ADV-01 | Phase 3 | Pending |
+| ASR-01 | Phase 1: ASR Core Module | Pending |
+| ASR-02 | Phase 1: ASR Core Module | Pending |
+| ASR-03 | Phase 1: ASR Core Module | Pending |
+| ASR-04 | Phase 1: ASR Core Module | Pending |
+| ASR-05 | Phase 1: ASR Core Module | Pending |
+| ASR-06 | Phase 1: ASR Core Module | Pending |
+| TTS-01 | Phase 2: TTS Module | Pending |
+| TTS-02 | Phase 2: TTS Module | Pending |
+| ADV-01 | Phase 3: Barge-In | Pending |
 
 **Coverage:**
 - v1 requirements: 9 total
 - Mapped to phases: 9
 - Unmapped: 0 ✓
+
+**Phase Distribution:**
+- Phase 1 (ASR Core Module): 6 requirements
+- Phase 2 (TTS Module): 2 requirements
+- Phase 3 (Barge-In): 1 requirement
 
 ---
 *Requirements defined: 2026-03-26*
