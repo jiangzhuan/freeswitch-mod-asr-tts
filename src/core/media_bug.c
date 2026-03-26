@@ -1,7 +1,7 @@
 #include "media_bug.h"
 #include "worker.h"
 
-static void* buffer_consumer_thread(void *data) {
+static void* buffer_consumer_thread(switch_thread_t *thread, void *data) {
     asr_session_ctx_t *ctx = (asr_session_ctx_t *)data;
     int16_t audio_buf[1600];
     size_t audio_len;
@@ -65,7 +65,9 @@ static switch_bool_t asr_media_bug_callback(switch_media_bug_t *bug, void *user_
             ctx->active = SWITCH_FALSE;
             
             if (ctx->consumer_thread) {
-                switch_thread_join(&ctx->consumer_thread);
+                switch_status_t retval;
+                switch_thread_join(&retval, ctx->consumer_thread);
+                ctx->consumer_thread = NULL;
             }
             
             switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(ctx->session), SWITCH_LOG_INFO, 
@@ -135,7 +137,7 @@ switch_status_t media_bug_attach(asr_session_ctx_t **ctx, switch_core_session_t 
     }
     
     status = switch_core_media_bug_add(session, "asr", NULL, asr_media_bug_callback, 
-                                        new_ctx, 0, SMBF_READ_STREAM_REPLACE, &new_ctx->bug);
+                                        new_ctx, 0, SMBF_READ_REPLACE, &new_ctx->bug);
     if (status != SWITCH_STATUS_SUCCESS) {
         switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, 
             "Failed to add media bug\n");
@@ -165,7 +167,9 @@ void media_bug_detach(asr_session_ctx_t **ctx) {
     }
     
     if (c->consumer_thread) {
-        switch_thread_join(&c->consumer_thread);
+        switch_status_t retval;
+        switch_thread_join(&retval, c->consumer_thread);
+        c->consumer_thread = NULL;
     }
     
     buffer_destroy(&c->buffer);

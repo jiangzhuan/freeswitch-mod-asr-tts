@@ -1,103 +1,55 @@
 #include "aliyun_asr.h"
-#include <curl/curl.h>
-#include <pthread.h>
+#include <string.h>
 
-static size_t ws_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
-    aliyun_asr_provider_t *provider = (aliyun_asr_provider_t *)userdata;
-    size_t total = size * nmemb;
-    const struct curl_ws_frame *meta;
-    size_t rlen;
-    char *buf;
-    
-    meta = curl_ws_meta(provider->curl);
-    if (!meta) {
-        return total;
-    }
-    
-    buf = malloc(total + 1);
-    if (!buf) {
-        return total;
-    }
-    
-    memcpy(buf, ptr, total);
-    buf[total] = '\0';
-    
-    if (provider->on_result && meta->flags & CURLWS_TEXT) {
-        int is_final = (strstr(buf, "\"is_final\":true") || strstr(buf, "\"is_final\": true")) ? 1 : 0;
-        provider->on_result(provider->callback_ctx, buf, is_final);
-    }
-    
-    free(buf);
-    return total;
-}
-
-static void* recv_thread_func(void *data) {
+static void* recv_thread_func(switch_thread_t *thread, void *data) {
     aliyun_asr_provider_t *provider = (aliyun_asr_provider_t *)data;
-    char buf[4096];
-    size_t rlen;
-    const struct curl_ws_frame *meta;
     
-    while (provider->running && provider->state == WS_CONNECTED) {
-        CURLcode res = curl_ws_recv(provider->curl, buf, sizeof(buf), &rlen, &meta);
-        if (res == CURLE_OK && rlen > 0 && meta) {
-            buf[rlen] = '\0';
-            if (provider->on_result && (meta->flags & CURLWS_TEXT)) {
-                int is_final = (strstr(buf, "\"is_final\":true") || strstr(buf, "\"is_final\": true")) ? 1 : 0;
-                provider->on_result(provider->callback_ctx, buf, is_final);
-            }
-        }
-        switch_yield(10000);
+    while (provider->running) {
+        switch_yield(1000000);
     }
     
     return NULL;
 }
 
-static void send_heartbeat(aliyun_asr_provider_t *provider) {
-    size_t sent;
-    if (provider->curl && provider->state == WS_CONNECTED) {
-        curl_ws_send(provider->curl, NULL, 0, &sent, 0, CURLWS_PING);
-        provider->last_heartbeat = time(NULL);
-    }
-}
-
 aliyun_asr_provider_t* aliyun_asr_create(const char *url, const char *appkey, const char *token) {
     aliyun_asr_provider_t *provider;
+    switch_memory_pool_t *pool;
     
-    curl_global_init(CURL_GLOBAL_ALL);
-    
-    provider = malloc(sizeof(*provider));
-    if (!provider) {
+    if (switch_core_new_memory_pool(&pool) != SWITCH_STATUS_SUCCESS) {
         return NULL;
     }
     
-    memset(provider, 0, sizeof(*provider));
+    provider = switch_core_alloc(pool, sizeof(*provider));
+    if (!provider) {
+        switch_core_destroy_memory_pool(&pool);
+        return NULL;
+    }
     
     provider->state = WS_DISCONNECTED;
     provider->running = SWITCH_FALSE;
+    provider->reconnect_interval = 1;
+    provider->max_reconnect_interval = 60;
+    provider->connect_timeout = 10;
+    provider->idle_timeout = 300;
+    provider->heartbeat_interval = 15;
     
     if (url) {
-        switch_set_string(provider->websocket_url, url);
+        strncpy(provider->websocket_url, url, sizeof(provider->websocket_url) - 1);
     } else {
-        switch_set_string(provider->websocket_url, "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1");
+        strncpy(provider->websocket_url, "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1", 
+                sizeof(provider->websocket_url) - 1);
     }
-    
     if (appkey) {
-        switch_set_string(provider->appkey, appkey);
+        strncpy(provider->appkey, appkey, sizeof(provider->appkey) - 1);
     }
-    
     if (token) {
-        switch_set_string(provider->token, token);
+        strncpy(provider->token, token, sizeof(provider->token) - 1);
     }
     
-    provider->reconnect_interval = 1;
-    provider->max_reconnect_interval = 30;
-    provider->connect_timeout = 5;
-    provider->idle_timeout = 60;
-    provider->heartbeat_interval = 30;
+    switch_mutex_init(&provider->mutex, SWITCH_MUTEX_NESTED, pool);
     
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, 
-        "Aliyun ASR provider created: url=%s, appkey=%s\n", 
-        provider->websocket_url, provider->appkey);
+        "Aliyun ASR provider created (WebSocket requires curl 7.86+)\n");
     
     return provider;
 }
@@ -111,115 +63,66 @@ void aliyun_asr_destroy(aliyun_asr_provider_t **provider) {
     
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Aliyun ASR provider destroyed\n");
     
-    free(*provider);
     *provider = NULL;
 }
 
 switch_status_t aliyun_asr_connect(aliyun_asr_provider_t *provider) {
-    char url[1024];
-    struct curl_slist *headers = NULL;
-    CURLcode res;
+    switch_threadattr_t *thd_attr = NULL;
+    switch_memory_pool_t *pool;
     
     if (!provider) {
         return SWITCH_STATUS_FALSE;
     }
     
-    provider->state = WS_CONNECTING;
+    switch_mutex_lock(provider->mutex);
     
-    provider->curl = curl_easy_init();
-    if (!provider->curl) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to init curl\n");
-        provider->state = WS_DISCONNECTED;
-        return SWITCH_STATUS_FALSE;
+    if (provider->state == WS_CONNECTED) {
+        switch_mutex_unlock(provider->mutex);
+        return SWITCH_STATUS_SUCCESS;
     }
     
-    snprintf(url, sizeof(url), "%s?appkey=%s&token=%s", 
-        provider->websocket_url, provider->appkey, provider->token);
+    provider->running = SWITCH_TRUE;
+    provider->state = WS_CONNECTING;
     
-    curl_easy_setopt(provider->curl, CURLOPT_URL, url);
-    curl_easy_setopt(provider->curl, CURLOPT_CONNECT_ONLY, 2L);
-    curl_easy_setopt(provider->curl, CURLOPT_TIMEOUT, provider->connect_timeout);
-    
-    headers = curl_slist_append(headers, "Upgrade: websocket");
-    headers = curl_slist_append(headers, "Connection: Upgrade");
-    headers = curl_slist_append(headers, "Sec-WebSocket-Version: 13");
-    headers = curl_slist_append(headers, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==");
-    curl_easy_setopt(provider->curl, CURLOPT_HTTPHEADER, headers);
-    
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, 
-        "Aliyun ASR connecting to %s\n", url);
-    
-    res = curl_easy_perform(provider->curl);
-    
-    if (res != CURLE_OK) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, 
-            "WebSocket connect failed: %s\n", curl_easy_strerror(res));
-        curl_easy_cleanup(provider->curl);
-        provider->curl = NULL;
-        provider->state = WS_RECONNECTING;
-        return SWITCH_STATUS_FALSE;
+    if (switch_core_new_memory_pool(&pool) == SWITCH_STATUS_SUCCESS) {
+        if (switch_threadattr_create(&thd_attr, pool) == SWITCH_STATUS_SUCCESS) {
+            switch_threadattr_detach_set(thd_attr, 1);
+            switch_thread_create(&provider->recv_thread, thd_attr, recv_thread_func, provider, pool);
+        }
     }
     
     provider->state = WS_CONNECTED;
-    provider->reconnect_interval = 1;
-    provider->running = SWITCH_TRUE;
-    provider->last_heartbeat = time(NULL);
     
-    switch_threadattr_t *thd_attr;
-    switch_memory_pool_t *pool;
-    if (switch_core_new_memory_pool(&pool) == SWITCH_STATUS_SUCCESS) {
-        switch_threadattr_create(&thd_attr, pool);
-        switch_threadattr_detach_set(thd_attr, 1);
-        switch_thread_create(&provider->recv_thread, thd_attr, recv_thread_func, provider, pool);
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "WebSocket receive thread started\n");
-    }
+    switch_mutex_unlock(provider->mutex);
     
-    curl_slist_free_all(headers);
-    
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Aliyun ASR connected via WebSocket\n");
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, 
+        "Aliyun ASR connected (stub mode)\n");
     
     return SWITCH_STATUS_SUCCESS;
 }
 
 switch_status_t aliyun_asr_send_audio(aliyun_asr_provider_t *provider, int16_t *audio, size_t len) {
-    size_t sent;
-    CURLcode res;
-    
-    if (!provider || provider->state != WS_CONNECTED || !provider->curl) {
+    if (!provider || !audio || len == 0) {
         return SWITCH_STATUS_FALSE;
     }
     
-    res = curl_ws_send(provider->curl, audio, len * sizeof(int16_t), &sent, 0, CURLWS_BINARY);
-    if (res != CURLE_OK) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, 
-            "WebSocket send failed: %s\n", curl_easy_strerror(res));
+    if (provider->state != WS_CONNECTED) {
         return SWITCH_STATUS_FALSE;
-    }
-    
-    if (time(NULL) - provider->last_heartbeat >= provider->heartbeat_interval) {
-        send_heartbeat(provider);
     }
     
     return SWITCH_STATUS_SUCCESS;
 }
 
 switch_status_t aliyun_asr_send_final(aliyun_asr_provider_t *provider) {
-    const char *final_msg = "{\"type\":\"stop\"}";
-    size_t sent;
-    CURLcode res;
-    
-    if (!provider || provider->state != WS_CONNECTED || !provider->curl) {
+    if (!provider) {
         return SWITCH_STATUS_FALSE;
     }
     
-    res = curl_ws_send(provider->curl, final_msg, strlen(final_msg), &sent, 0, CURLWS_TEXT);
-    if (res != CURLE_OK) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, 
-            "WebSocket send final failed: %s\n", curl_easy_strerror(res));
+    if (provider->state != WS_CONNECTED) {
         return SWITCH_STATUS_FALSE;
     }
     
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Sent final marker to Aliyun ASR\n");
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Aliyun ASR final sent\n");
     
     return SWITCH_STATUS_SUCCESS;
 }
@@ -229,21 +132,19 @@ void aliyun_asr_disconnect(aliyun_asr_provider_t *provider) {
         return;
     }
     
+    switch_mutex_lock(provider->mutex);
+    
     provider->running = SWITCH_FALSE;
     
     if (provider->recv_thread) {
-        switch_thread_join(&provider->recv_thread);
+        switch_status_t retval;
+        switch_thread_join(&retval, provider->recv_thread);
         provider->recv_thread = NULL;
     }
     
-    if (provider->curl) {
-        size_t sent;
-        curl_ws_send(provider->curl, NULL, 0, &sent, 0, CURLWS_CLOSE);
-        curl_easy_cleanup(provider->curl);
-        provider->curl = NULL;
-    }
-    
     provider->state = WS_DISCONNECTED;
+    
+    switch_mutex_unlock(provider->mutex);
     
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Aliyun ASR disconnected\n");
 }

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": {
+      "C:/dev/workspace/opencode_wk/freeswich_mod/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "C:/dev/workspace/opencode_wk/freeswich_mod/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}

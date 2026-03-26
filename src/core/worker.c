@@ -91,7 +91,8 @@ void worker_pool_destroy(worker_pool_t **pool) {
     
     for (i = 0; i < p->thread_count; i++) {
         if (p->threads[i]) {
-            switch_thread_join(&p->threads[i]);
+            switch_status_t retval;
+            switch_thread_join(&retval, p->threads[i]);
         }
     }
     

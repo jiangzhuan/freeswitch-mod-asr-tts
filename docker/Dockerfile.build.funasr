@@ -1,0 +1,36 @@
+FROM registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.11
+
+# Use Chinese Ubuntu mirror
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    libcurl4-openssl-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone FreeSWITCH source for headers (shallow clone)
+WORKDIR /usr/src
+RUN git clone --depth 1 -b v1.10.12 https://github.com/signalwire/freeswitch.git freeswitch-src
+
+# Create FreeSWITCH include directory structure
+RUN mkdir -p /usr/local/freeswitch/include/freeswitch && \
+    cp -r /usr/src/freeswitch-src/src/include/*.h /usr/local/freeswitch/include/freeswitch/ && \
+    cp -r /usr/src/freeswitch-src/libs/apr/include/*.h /usr/local/freeswitch/include/freeswitch/ 2>/dev/null || true && \
+    cp -r /usr/src/freeswitch-src/libs/apr-util/include/*.h /usr/local/freeswitch/include/freeswitch/ 2>/dev/null || true && \
+    cp /usr/src/freeswitch-src/libs/libteletone/src/*.h /usr/local/freeswitch/include/freeswitch/ 2>/dev/null || true && \
+    cp -r /usr/src/freeswitch-src/libs/srtp/include/*.h /usr/local/freeswitch/include/freeswitch/ 2>/dev/null || true
+
+# Copy generated config header to both locations
+COPY switch_am_config.h /usr/local/freeswitch/include/freeswitch/
+COPY switch_am_config.h /usr/src/freeswitch-src/src/include/
+
+WORKDIR /build
+
+VOLUME ["/build/src", "/build/output"]
+
+CMD ["bash", "-c", "cd /build/src && rm -f *.o core/*.o asr/*.o asr/providers/*.o 2>/dev/null; make && cp mod_asr_tts.so /build/output/"]

@@ -4,7 +4,7 @@
 #include <switch.h>
 
 typedef struct asr_resampler_t {
-    switch_resampler_t *resampler;
+    switch_audio_resampler_t *resampler;
     uint32_t from_rate;
     uint32_t to_rate;
 } asr_resampler_t;

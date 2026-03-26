@@ -1,5 +1,4 @@
 #include "mod_asr_tts.h"
-#include "core/config.h"
 #include "core/worker.h"
 #include "core/media_bug.h"
 #include "asr/asr_interface.h"
@@ -105,7 +104,16 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_asr_tts_load) {
 
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "mod_asr_tts loaded (version %s)\n", MOD_ASR_TTS_VERSION);
 
-    SWITCH_ADD_ASR(asr_interface, "aliyun", asr_open, asr_close, asr_feed, asr_results, asr_pause, asr_resume, NULL, NULL, NULL);
+    asr_interface = (switch_asr_interface_t *)switch_loadable_module_create_interface(*module_interface, SWITCH_ASR_INTERFACE);
+    asr_interface->interface_name = "aliyun";
+    asr_interface->asr_open = asr_open;
+    asr_interface->asr_close = asr_close;
+    asr_interface->asr_feed = asr_feed;
+    asr_interface->asr_check_results = asr_check_results;
+    asr_interface->asr_get_results = asr_get_results;
+    asr_interface->asr_pause = asr_pause;
+    asr_interface->asr_resume = asr_resume;
+
     SWITCH_ADD_API(api_interface, "asr_status", "Show ASR status", asr_status_api, "");
     SWITCH_ADD_APP(app_interface, "start_asr", "Start ASR", "Start ASR recognition", start_asr_app, "", SAF_NONE);
     SWITCH_ADD_APP(app_interface, "stop_asr", "Stop ASR", "Stop ASR recognition", stop_asr_app, "", SAF_NONE);

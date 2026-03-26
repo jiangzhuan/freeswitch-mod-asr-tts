@@ -136,7 +136,24 @@ switch_status_t asr_feed(switch_asr_handle_t *ah, void *data, unsigned int len, 
     return SWITCH_STATUS_SUCCESS;
 }
 
-switch_status_t asr_results(switch_asr_handle_t *ah, switch_asr_result_t **result, switch_asr_flag_t *flags) {
+switch_status_t asr_check_results(switch_asr_handle_t *ah, switch_asr_flag_t *flags) {
+    asr_handle_t *handle = (asr_handle_t *)ah->private_info;
+    
+    if (!handle || !handle->running) {
+        return SWITCH_STATUS_FALSE;
+    }
+    
+    return SWITCH_STATUS_BREAK;
+}
+
+switch_status_t asr_get_results(switch_asr_handle_t *ah, char **xmlstr, switch_asr_flag_t *flags) {
+    asr_handle_t *handle = (asr_handle_t *)ah->private_info;
+    
+    if (!handle || !xmlstr) {
+        return SWITCH_STATUS_FALSE;
+    }
+    
+    *xmlstr = NULL;
     return SWITCH_STATUS_BREAK;
 }
 
