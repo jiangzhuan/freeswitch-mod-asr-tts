@@ -24,6 +24,12 @@ typedef struct aliyun_asr_provider_t {
     int idle_timeout;
     int heartbeat_interval;
     
+    void *curl;
+    switch_thread_t *recv_thread;
+    switch_mutex_t *mutex;
+    switch_bool_t running;
+    time_t last_heartbeat;
+    
     void *callback_ctx;
     void (*on_result)(void *ctx, const char *json, int is_final);
     void (*on_error)(void *ctx, int code, const char *message);

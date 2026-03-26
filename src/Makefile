@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-fPIC -Wall -I/usr/local/freeswitch/include/freeswitch
-LDFLAGS=-shared -lfreeswitch -lm
+LDFLAGS=-shared -lfreeswitch -lm -lcurl
 
 TARGET=mod_asr_tts.so
 SRCS=mod_asr_tts.c \
