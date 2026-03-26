@@ -1,0 +1,23 @@
+CC=gcc
+CFLAGS=-fPIC -Wall -I/usr/local/freeswitch/include/freeswitch
+LDFLAGS=-shared -lfreeswitch
+
+TARGET=mod_asr_tts.so
+SRCS=mod_asr_tts.c core/config.c
+OBJS=$(SRCS:.c=.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+install: $(TARGET)
+	cp $(TARGET) /usr/local/freeswitch/mod/
+
+clean:
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all install clean

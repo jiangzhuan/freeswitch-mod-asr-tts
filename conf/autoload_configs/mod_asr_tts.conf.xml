@@ -1,0 +1,16 @@
+<configuration name="mod_asr_tts.conf" description="ASR/TTS Module Configuration">
+  <settings>
+    <!-- Required: Alibaba Cloud ASR credentials -->
+    <param name="appkey" value="YOUR_APPKEY"/>
+    <param name="token" value="YOUR_TOKEN"/>
+    <param name="websocket-url" value="wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1"/>
+    
+    <!-- Optional: Audio settings -->
+    <param name="sample-rate" value="16000"/>
+    <param name="vad-threshold" value="-40"/>
+    
+    <!-- Optional: Performance settings -->
+    <param name="thread-pool-size" value="4"/>
+    <param name="reconnect-max-interval" value="30"/>
+  </settings>
+</configuration>
